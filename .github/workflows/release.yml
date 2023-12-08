@@ -19,7 +19,7 @@ jobs:
     runs-on: "${{ matrix.os }}"
     strategy:
       matrix:
-        os: ["ubuntu-latest", "macos-latest"]
+        os: ["ubuntu-latest"] # no OpenMP yet, "macos-latest"]
         arch: ["x86_64", "aarch64"]
         build: ["cp38-*", "cp39-*", "cp310-*", "cp311-*"] # proxsuite is not ready for 3.12
         exclude:
