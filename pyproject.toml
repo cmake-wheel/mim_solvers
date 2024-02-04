@@ -12,3 +12,6 @@ version = "0.0.2"
 [project.urls]
 homepage = "https://github.com/cmake-wheel/mim_solvers"
 upstream = "https://github.com/machines-in-motion/mim_solvers"
+
+[tool.cmeel]
+build-number = 2
