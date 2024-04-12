@@ -63,7 +63,7 @@ class SolverCSQP : public SolverDDP {
 
   virtual bool solve(const std::vector<Eigen::VectorXd>& init_xs = crocoddyl::DEFAULT_VECTOR,
                      const std::vector<Eigen::VectorXd>& init_us = crocoddyl::DEFAULT_VECTOR, const std::size_t maxiter = 100,
-                     const bool is_feasible = false, const double regInit = 1e-9);
+                     const bool is_feasible = false, const double regInit = NAN);
 
   /**
    * @copybrief SolverAbstract::expectedImprovement
@@ -84,7 +84,8 @@ class SolverCSQP : public SolverDDP {
    */
   void updateExpectedImprovement();
 
-  virtual void forwardPass();
+  virtual void forwardPass(const double stepLength=0);
+  virtual void forwardPass_without_constraints();
   virtual void backwardPass();
   virtual void backwardPass_without_rho_update();
   virtual void backwardPass_without_constraints();
@@ -99,6 +100,8 @@ class SolverCSQP : public SolverDDP {
   virtual void calc(const bool recalc = true);
 
   virtual void reset_params();
+
+  virtual void reset_rho_vec();
 
   // virtual void set_constraints(const std::vector<boost::shared_ptr<ConstraintModelAbstract>>& constraint_models){
   //   constraint_models_ = constraint_models;
@@ -132,13 +135,13 @@ class SolverCSQP : public SolverDDP {
   double get_xgrad_norm() const { return x_grad_norm_; };
   double get_ugrad_norm() const { return u_grad_norm_; };
   double get_merit() const { return merit_; };
-  bool get_use_kkt_criteria() const { return use_kkt_criteria_; };
+  bool get_extra_iteration_for_last_kkt() const { return extra_iteration_for_last_kkt_; };
   bool get_use_filter_line_search() const { return use_filter_line_search_; };
   double get_mu() const { return mu_; };
+  double get_mu2() const { return mu2_; };
   double get_termination_tolerance() const { return termination_tol_; };
   std::size_t get_max_qp_iters(){ return max_qp_iters_; };
-  double get_cost(){ return cost_;};
-  bool get_warm_start() { return warm_start_; };
+  bool get_equality_qp_initial_guess() { return equality_qp_initial_guess_; };
   std::size_t get_filter_size() const { return filter_size_; };
 
 
@@ -150,11 +153,24 @@ class SolverCSQP : public SolverDDP {
 
   double get_eps_abs() { return eps_abs_;};
   double get_eps_rel() { return eps_rel_;};
+  double get_norm_primal() { return norm_primal_;};
+  double get_norm_primal_tolerance() { return norm_primal_tolerance_;};
+  double get_norm_dual() { return norm_dual_;};
+  double get_norm_dual_tolerance() { return norm_dual_tolerance_;};
+
+  double get_reset_y() { return reset_y_;};
+  double get_reset_rho() { return reset_rho_;};
+  double get_rho_min() { return rho_min_;};
+  double get_rho_max() { return rho_max_;};
 
 
-  void printCallbacks();
+  void printCallbacks(bool isLastIteration = false);
+  void printQPCallbacks(int iter);
   void setCallbacks(bool inCallbacks);
   bool getCallbacks();
+  void setQPCallbacks(bool inCallbacks);
+  bool getQPCallbacks();
+
 
 
 
@@ -162,13 +178,15 @@ class SolverCSQP : public SolverDDP {
   void set_adaptive_rho_tolerance(std::size_t tolerance) { adaptive_rho_tolerance_ = tolerance; };
 
   void set_mu(double mu) { mu_ = mu; };
+  void set_mu2(double mu2) { mu2_ = mu2; };
   void set_alpha(double alpha) { alpha_ = alpha; };
   void set_sigma(double sigma) { sigma_ = sigma; };
 
-  void set_warm_start(bool warm_start) { warm_start_ = warm_start; };
+  void set_equality_qp_initial_guess(bool equality_qp_initial_guess) { equality_qp_initial_guess_ = equality_qp_initial_guess; };
+
 
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
-  void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
+  void set_extra_iteration_for_last_kkt(bool inBool) { extra_iteration_for_last_kkt_ = inBool; };
   void set_use_filter_line_search(bool inBool) { use_filter_line_search_ = inBool; };
   void set_filter_size(const std::size_t inFilterSize) { filter_size_ = inFilterSize; 
                                                         gap_list_.resize(filter_size_); 
@@ -177,9 +195,10 @@ class SolverCSQP : public SolverDDP {
 
 
 
-  void update_lagrangian_parameters(bool update_y);
+  void update_lagrangian_parameters();
   void set_rho_sparse(double rho_sparse) {rho_sparse_ = rho_sparse;};
-  void update_rho_sparse(int iter);
+  void update_rho_vec(int iter);
+  void apply_rho_update(double rho_sparse_);
 
   void set_max_qp_iters(int iters){ max_qp_iters_ = iters; };
   void set_eps_abs(double eps_abs) { eps_abs_ = eps_abs;};
@@ -214,9 +233,12 @@ class SolverCSQP : public SolverDDP {
   double norm_dual_ = 0.0;                                     //!< norm dual residual
   double norm_primal_rel_ = 0.0;                               //!< norm primal relative residual
   double norm_dual_rel_ = 0.0;                                 //!< norm dual relative residual
-
-  bool warm_start_y_ = false;
+  double norm_primal_tolerance_ = 0.0;                         //!< tolerance of the primal residual norm
+  double norm_dual_tolerance_ = 0.0;                           //!< tolerance of the primal residual norm
+  bool reset_y_ = false;
   bool reset_rho_ = false;
+  bool update_rho_with_heuristic_ = false;
+  bool remove_reg_ = false;                                    //!< Removes Crocoddyl's regularization (preg,dreg)
 
  protected:
   double merit_ = 0;                                           //!< merit function at nominal traj
@@ -227,40 +249,42 @@ class SolverCSQP : public SolverDDP {
   double constraint_norm_ = 0;                                 //!< 1 norm of constraint violation
   double constraint_norm_try_ = 0;                             //!< 1 norm of constraint violation try
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
-  double cost_ = 0.0;                                          //!< cost function
   double mu_ = 1e1;                                            //!< penalty no constraint violation
   double mu2_ = 1e1;                                           //!< penalty no constraint violation
   double termination_tol_ = 1e-6;                              //!< Termination tolerance
   bool with_callbacks_ = false;                                //!< With callbacks
-  bool use_kkt_criteria_ = true;                               //!< Use KKT conditions as termination criteria 
+  bool with_qp_callbacks_ = false;                         //!< With QP callbacks
+  bool extra_iteration_for_last_kkt_ = false;                  //!< Additional iteration if SQP max. iter reached
   double sigma_ = 1e-6;                                        //!< proximal term
   double alpha_ = 1.6;                                         //!< relaxed step size
   std::size_t max_qp_iters_ = 1000;                            //!< max qp iters
   std::size_t qp_iters_ = 0;
 
   double rho_estimate_sparse_ = 0.0;                          //!< rho estimate
-  double rho_sparse_ = 1e-1;                                  //!< rho
-  double rho_sparse_base_;
+  double rho_sparse_;                                  //!< rho
+  double rho_sparse_base_ = 1e-1;
   double rho_min_ = 1e-6;                                     //!< rho min
   double rho_max_ = 1e3;                                      //!< rho max 
   std::size_t rho_update_interval_ = 25;                      //!< frequency of update of rho
   double adaptive_rho_tolerance_ = 5; 
   double eps_abs_ = 1e-4;                                     //!< absolute termination criteria
   double eps_rel_ = 1e-4;                                     //!< relative termination criteria
-  double warm_start_ = true;
+  double equality_qp_initial_guess_ = true;
   std::size_t filter_size_ = 1;                               //!< Filter size for line-search (do not change the default value !)
   double KKT_ = std::numeric_limits<double>::infinity();      //!< KKT conditions residual
 
  private:
   double th_acceptnegstep_;                                   //!< Threshold used for accepting step along ascent direction
-  Eigen::VectorXd dual_vecx;
-  Eigen::VectorXd dual_vecu;
+  bool is_worse_than_memory_ = false;                         //!< Boolean for filter line-search criteria 
 
-  Eigen::MatrixXd sigma_diag_x;                // This is the sigma * eye(ndx)
-  std::vector<Eigen::MatrixXd> sigma_diag_u;   // This is the sigma * eye(nu)
-  std::vector<Eigen::VectorXd> Cdx_Cdu;
-  bool is_worse_than_memory_ = false;          //!< Boolean for filter line-search criteria 
-
+  Eigen::VectorXd tmp_vec_x_;                                 //!< Temporary variable
+  std::vector<Eigen::VectorXd> tmp_vec_u_;                    //!< Temporary variable
+  std::vector<Eigen::VectorXd> tmp_dual_cwise_;               //!< Temporary variable
+  Eigen::VectorXd tmp_Vx_;                                    //!< Temporary variable
+  std::vector<Eigen::VectorXd> tmp_Cdx_Cdu_;                       //!< Temporary variable
+  std::vector<Eigen::MatrixXd> tmp_rhoGx_mat_;                //!< Temporary variable
+  std::vector<Eigen::MatrixXd> tmp_rhoGu_mat_;                //!< Temporary variable
+  std::vector<Eigen::VectorXd> Vxx_fs_;                       //!< Temporary variable
 };
 
 }  // namespace mim_solvers

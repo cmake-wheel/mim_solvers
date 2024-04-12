@@ -59,7 +59,6 @@ void exposeSolverPROXQP() {
       .def_readwrite("cost_try", &SolverPROXQP::cost_try_, "cost try")
       .def_readwrite("fs_try", &SolverPROXQP::fs_try_, "fs_try")
       .def_readwrite("lag_mul", &SolverPROXQP::lag_mul_, "lagrange multipliers")
-      .def_readwrite("KKT", &SolverPROXQP::KKT_, "KKT residual")
 
       .add_property("constraint_norm", bp::make_function(&SolverPROXQP::get_constraint_norm),
                     "Constraint norm")
@@ -67,13 +66,11 @@ void exposeSolverPROXQP() {
                     "Gap norm")
       .add_property("qp_iters", bp::make_function(&SolverPROXQP::get_qp_iters),
                     "Number of QP iterations")
-      .add_property("KKT_norm", bp::make_function(&SolverPROXQP::get_KKT_norm),
+      .add_property("KKT_norm", bp::make_function(&SolverPROXQP::get_KKT),
                     "KKT norm")
 
       .add_property("with_callbacks", bp::make_function(&SolverPROXQP::getCallbacks), bp::make_function(&SolverPROXQP::setCallbacks),
                     "Activates the callbacks when true (default: False)")
-      .add_property("use_kkt_criteria", bp::make_function(&SolverPROXQP::get_use_kkt_criteria), bp::make_function(&SolverPROXQP::set_use_kkt_criteria),
-                    "Use the KKT residual condition as a termination criteria (default: True)")
       .add_property("xs", make_function(&SolverPROXQP::get_xs, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverPROXQP::set_xs), "xs")
       .add_property("us", make_function(&SolverPROXQP::get_us, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverPROXQP::set_us), "us")
       .add_property("P", make_function(&SolverPROXQP::get_P, bp::return_value_policy<bp::copy_const_reference>()), "P")

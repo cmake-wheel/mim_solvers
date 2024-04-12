@@ -24,6 +24,9 @@ namespace mim_solvers {
 
 SolverFDDP::SolverFDDP(boost::shared_ptr<crocoddyl::ShootingProblem> problem)
     : SolverDDP(problem), dg_(0), dq_(0), dv_(0), th_acceptnegstep_(2) {
+      std::cerr << "Warning: Do not use mim_solvers.SolverFDDP !!! " << std::endl;
+      std::cerr << "It may differ significantly from its Crocoddyl counterpart. " << std::endl;
+      std::cerr << "This class served only as a development tool and will be REMOVED in future releases." << std::endl;
       const std::size_t T = this->problem_->get_T();
       const std::size_t ndx = problem_->get_ndx();
       fs_try_.resize(T + 1);
@@ -56,11 +59,11 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
   setCandidate(init_xs, init_us, is_feasible);
 
   if (std::isnan(reginit)) {
-    xreg_ = reg_min_;
-    ureg_ = reg_min_;
+    preg_ = reg_min_;
+    dreg_ = reg_min_;
   } else {
-    xreg_ = reginit;
-    ureg_ = reginit;
+    preg_ = reginit;
+    dreg_ = reginit;
   }
   was_feasible_ = false;
   bool recalcDiff = true;
@@ -71,7 +74,7 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
       } catch (std::exception& e) {
         recalcDiff = false;
         increaseRegularization();
-        if (xreg_ == reg_max_) {
+        if (preg_ == reg_max_) {
           return false;
         } else {
           continue;
@@ -82,12 +85,11 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     updateExpectedImprovement();
 
     // KKT termination criteria
-    if(use_kkt_criteria_){
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverFDDP::solve");
-        return true;
-      }
-    } 
+    checkKKTConditions();
+    if (KKT_  <= termination_tol_) {
+      STOP_PROFILER("SolverFDDP::solve");
+      return true;
+    }
 
     gap_list_.push_back(gap_norm_);
     cost_list_.push_back(cost_);
@@ -148,7 +150,7 @@ bool SolverFDDP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::v
     }
     if (steplength_ <= th_stepinc_) {
       increaseRegularization();
-      if (xreg_ == reg_max_) {
+      if (preg_ == reg_max_) {
         STOP_PROFILER("SolverFDDP::solve");
         return false;
       }
@@ -179,10 +181,6 @@ void SolverFDDP::computeDirection(const bool recalcDiff) {
   }
   gap_norm_ += fs_.back().lpNorm<1>();
 
-  // KKT termination criteria
-  if(use_kkt_criteria_){
-    checkKKTConditions();
-  }  
   backwardPass();
   STOP_PROFILER("SolverFDDP::computeDirection");
 }

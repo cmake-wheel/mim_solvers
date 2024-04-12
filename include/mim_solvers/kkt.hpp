@@ -33,7 +33,7 @@ class SolverKKT : public crocoddyl::SolverAbstract {
       const std::vector<Eigen::VectorXd>& init_xs = crocoddyl::DEFAULT_VECTOR,
       const std::vector<Eigen::VectorXd>& init_us = crocoddyl::DEFAULT_VECTOR,
       const std::size_t maxiter = 100, const bool is_feasible = false,
-      const double regInit = 1e-9);
+      const double regInit = NAN);
   virtual void computeDirection(const bool recalc = true);
   virtual double tryStep(const double steplength = 1);
   virtual double stoppingCriteria();
@@ -54,9 +54,7 @@ class SolverKKT : public crocoddyl::SolverAbstract {
    */
   virtual void checkKKTConditions();
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
-  void set_use_kkt_criteria(bool inBool) { use_kkt_criteria_ = inBool; };
   double get_termination_tolerance() const { return termination_tol_; };
-  bool get_use_kkt_criteria() const { return use_kkt_criteria_; }
   double get_KKT() const { return KKT_; };
 
  protected:
@@ -94,7 +92,6 @@ class SolverKKT : public crocoddyl::SolverAbstract {
   Eigen::VectorXd kkt_primal_;
   Eigen::VectorXd dF;
   double KKT_ = std::numeric_limits<double>::infinity();   //!< KKT conditions residual
-  bool use_kkt_criteria_ = true;                           //!< Use KKT conditions as termination criteria 
   Eigen::VectorXd fs_flat_;                                //!< Gaps/defects between shooting nodes (1D array)
   double termination_tol_ = 1e-6;                          //!< Termination tolerance
 

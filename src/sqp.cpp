@@ -34,6 +34,8 @@ SolverSQP::SolverSQP(boost::shared_ptr<crocoddyl::ShootingProblem> problem)
       du_.resize(T);
       gap_list_.resize(filter_size_);
       cost_list_.resize(filter_size_);
+      tmp_vec_x_.resize(ndx);
+      tmp_vec_u_.resize(T);
       const std::vector<boost::shared_ptr<crocoddyl::ActionModelAbstract> >& models = problem_->get_runningModels();
       for (std::size_t t = 0; t < T; ++t) {
         const boost::shared_ptr<crocoddyl::ActionModelAbstract>& model = models[t];
@@ -45,6 +47,7 @@ SolverSQP::SolverSQP(boost::shared_ptr<crocoddyl::ShootingProblem> problem)
         dx_[t].setZero();
         du_[t] = Eigen::VectorXd::Zero(nu);
         fs_try_[t] = Eigen::VectorXd::Zero(ndx);
+        tmp_vec_u_[t].resize(nu);
       }
       lag_mul_.back().resize(ndx);
       lag_mul_.back().setZero();
@@ -52,7 +55,6 @@ SolverSQP::SolverSQP(boost::shared_ptr<crocoddyl::ShootingProblem> problem)
       dx_.back().setZero();
       fs_try_.back().resize(ndx);
       fs_try_.back() = Eigen::VectorXd::Zero(ndx);
-      
 
       const std::size_t n_alphas = 10;
       alphas_.resize(n_alphas);
@@ -82,18 +84,17 @@ bool SolverSQP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
   xs_try_[0] = problem_->get_x0();  // it is needed in case that init_xs[0] is infeasible
 
   if (std::isnan(reginit)) {
-    xreg_ = reg_min_;
-    ureg_ = reg_min_;
+    preg_ = reg_min_;
+    dreg_ = reg_min_;
   } else {
-    xreg_ = reginit;
-    ureg_ = reginit;
+    preg_ = reginit;
+    dreg_ = reginit;
   }
   
+  bool recalcDiff = true;
   for (iter_ = 0; iter_ < maxiter; ++iter_) {
 
-
-    was_feasible_ = false;
-    bool recalcDiff = true;
+    recalcDiff = true;
 
     while (true) {
       try {
@@ -102,7 +103,7 @@ bool SolverSQP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
       catch (std::exception& e) {
         recalcDiff = false;
         increaseRegularization();
-        if (xreg_ == reg_max_) {
+        if (preg_ == reg_max_) {
           return false;
         } else {
           continue;
@@ -112,12 +113,15 @@ bool SolverSQP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
     }
 
     // KKT termination criteria
-    if(use_kkt_criteria_){
-      if (KKT_  <= termination_tol_) {
-        STOP_PROFILER("SolverSQP::solve");
-        return true;
+    checkKKTConditions();
+    if (KKT_  <= termination_tol_) {
+      if(with_callbacks_){
+        printCallbacks();
       }
-    }  
+      STOP_PROFILER("SolverSQP::solve");
+      return true;
+    }
+      
 
     gap_list_.push_back(gap_norm_);
     cost_list_.push_back(cost_);
@@ -160,7 +164,7 @@ bool SolverSQP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
     }
     if (steplength_ <= th_stepinc_) {
       increaseRegularization();
-      if (xreg_ == reg_max_) {
+      if (preg_ == reg_max_) {
         STOP_PROFILER("SolverSQP::solve");
         return false;
       }
@@ -170,6 +174,39 @@ bool SolverSQP::solve(const std::vector<Eigen::VectorXd>& init_xs, const std::ve
       printCallbacks();
     }
   }
+
+
+  if (extra_iteration_for_last_kkt_){
+    recalcDiff = true;
+
+    while (true) {
+      try {
+        computeDirection(recalcDiff);
+      } 
+      catch (std::exception& e) {
+        recalcDiff = false;
+        increaseRegularization();
+        if (preg_ == reg_max_) {
+          return false;
+        } else {
+          continue;
+        }
+      }
+      break;
+    }
+
+    // KKT termination criteria
+    checkKKTConditions();
+    if (KKT_  <= termination_tol_) {
+      if(with_callbacks_){
+        printCallbacks();
+      }
+      STOP_PROFILER("SolverSQP::solve");
+      return true;
+    }
+  }
+
+
   STOP_PROFILER("SolverSQP::solve");
   return false;
 }
@@ -189,11 +226,6 @@ void SolverSQP::computeDirection(const bool recalcDiff){
 
   merit_ = cost_ + mu_*gap_norm_;
 
-  // KKT termination criteria
-  if(use_kkt_criteria_){
-    checkKKTConditions();
-  }  
-
   backwardPass();
   forwardPass();
 
@@ -208,32 +240,50 @@ void SolverSQP::checkKKTConditions(){
   const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
   for (std::size_t t = 0; t < T; ++t) {
     const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-    KKT_ = std::max(KKT_, (d->Lx + d->Fx.transpose() * lag_mul_[t+1] - lag_mul_[t]).lpNorm<Eigen::Infinity>());
-    KKT_ = std::max(KKT_, (d->Lu + d->Fu.transpose() * lag_mul_[t+1]).lpNorm<Eigen::Infinity>());
+    tmp_vec_x_ = d->Lx;
+    tmp_vec_x_.noalias() += d->Fx.transpose() * lag_mul_[t+1];
+    tmp_vec_x_ -= lag_mul_[t];
+    tmp_vec_u_[t] = d->Lu;
+    tmp_vec_u_[t].noalias() += d->Fu.transpose() * lag_mul_[t+1];
+    KKT_ = std::max(KKT_, tmp_vec_x_.lpNorm<Eigen::Infinity>());
+    KKT_ = std::max(KKT_, tmp_vec_u_[t].lpNorm<Eigen::Infinity>());
     fs_flat_.segment(t*ndx, ndx) = fs_[t];
   }
   fs_flat_.tail(ndx) = fs_.back();
   const boost::shared_ptr<ActionDataAbstract>& d_ter = problem_->get_terminalData();
-  KKT_ = std::max(KKT_, (d_ter->Lx - lag_mul_.back()).lpNorm<Eigen::Infinity>());
+  tmp_vec_x_ = d_ter->Lx;
+  tmp_vec_x_ -= lag_mul_.back();
+  KKT_ = std::max(KKT_, tmp_vec_x_.lpNorm<Eigen::Infinity>());
   KKT_ = std::max(KKT_, fs_flat_.lpNorm<Eigen::Infinity>());
 }
 
 
-void SolverSQP::forwardPass(){
+void SolverSQP::forwardPass(const double stepLength){
+    (void)stepLength;
+
     START_PROFILER("SolverSQP::forwardPass");
-    x_grad_norm_ = 0; u_grad_norm_ = 0;
+    x_grad_norm_ = 0; 
+    u_grad_norm_ = 0;
 
     const std::size_t T = problem_->get_T();
     const std::vector<boost::shared_ptr<ActionDataAbstract> >& datas = problem_->get_runningDatas();
     for (std::size_t t = 0; t < T; ++t) {
       const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
-      lag_mul_[t].noalias() = Vxx_[t] * (dx_[t] - fs_[t]) + Vx_[t];
-      du_[t].noalias() = -K_[t]*(dx_[t]) - k_[t];
-      dx_[t+1].noalias() = (d->Fx - (d->Fu * K_[t]))*(dx_[t]) - (d->Fu * (k_[t])) + fs_[t+1];
+      tmp_vec_x_ = dx_[t] - fs_[t];
+      lag_mul_[t].noalias() = Vxx_[t] * tmp_vec_x_;
+      lag_mul_[t].noalias() += Vx_[t];
+      du_[t].noalias() = - K_[t] * dx_[t];
+      du_[t].noalias() -= k_[t];
+      dx_[t+1].noalias() = fs_[t+1];
+      dx_[t+1].noalias() += d->Fu * du_[t];
+      dx_[t+1].noalias() += d->Fx * dx_[t];
       x_grad_norm_ += dx_[t].lpNorm<1>(); // assuming that there is no gap in the initial state
       u_grad_norm_ += du_[t].lpNorm<1>();
     }
-    lag_mul_.back() = Vxx_.back() * (dx_.back() - fs_.back()) + Vx_.back();
+
+    lag_mul_.back() = Vx_.back();
+    tmp_vec_x_ = dx_.back() - fs_.back();
+    lag_mul_.back().noalias() += Vxx_.back() * tmp_vec_x_;
     x_grad_norm_ += dx_.back().lpNorm<1>(); // assuming that there is no gap in the initial state
     x_grad_norm_ = x_grad_norm_/(double)(T+1);
     u_grad_norm_ = u_grad_norm_/(double)T; 
@@ -261,11 +311,10 @@ double SolverSQP::tryStep(const double steplength) {
         const boost::shared_ptr<ActionDataAbstract>& d = datas[t];
         const std::size_t nu = m->get_nu();
 
-        // error = x + dx - f(x + dx, u + du)
-        // std::cout << dx_.size() << std::endl;
         m->get_state()->integrate(xs_[t], steplength * dx_[t], xs_try_[t]); 
         if (nu != 0) {
-            us_try_[t].noalias() = us_[t] + steplength * du_[t];
+            us_try_[t].noalias() = us_[t];
+            us_try_[t].noalias() += steplength * du_[t];
         }        
         m->calc(d, xs_try_[t], us_try_[t]);        
         cost_try_ += d->cost;
@@ -312,11 +361,19 @@ void SolverSQP::printCallbacks(){
     std::cout << "iter     merit         cost         grad      step    ||gaps||        KKT";
     std::cout << std::endl;
   }
-  std::cout << std::setw(4) << this->get_iter() << "  ";
+  if(KKT_ < termination_tol_){
+    std::cout << std::setw(4) << "END" << "  ";
+  } else {
+    std::cout << std::setw(4) << this->get_iter()+1 << "  ";
+  }
   std::cout << std::scientific << std::setprecision(5) << this->get_merit() << "  ";
   std::cout << std::scientific << std::setprecision(5) << this->get_cost() << "  ";
   std::cout << this->get_xgrad_norm() + this->get_ugrad_norm() << "  ";
-  std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
+  if(KKT_ < termination_tol_){
+    std::cout << std::fixed << std::setprecision(4) << " ---- " << "  ";
+  } else {
+    std::cout << std::fixed << std::setprecision(4) << this->get_steplength() << "  ";
+  }
   std::cout << std::scientific << std::setprecision(5) << this->get_gap_norm() << "  ";
   std::cout << std::scientific << std::setprecision(5) << KKT_;
   std::cout << std::endl;
