@@ -16,7 +16,7 @@ dependencies = [
 description = "A fast and flexible implementation of Rigid Body Dynamics algorithms and their analytical derivatives"
 license = "BSD-3-Clause"
 name = "cmeel-mim-solvers"
-version = "0.0.4"
+version = "0.0.5"
 
 [project.urls]
 homepage = "https://github.com/cmake-wheel/mim_solvers"
