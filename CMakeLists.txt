@@ -20,6 +20,9 @@ option(BUILD_PYTHON_INTERFACE "Build the python binding" ON)
 option(SUFFIX_SO_VERSION "Suffix library name with its version" ON)
 option(BUILD_WITH_PROXSUITE "Build the ProxQP-based SQP solver" OFF)
 option(BUILD_BENCHMARKS "Build the benchmarks" OFF)
+option(BUILD_WITH_MULTITHREADS
+       "Build the library with the Multithreading support (required OpenMP)"
+       OFF)
 
 # Project configuration
 set(PROJECT_USE_CMAKE_EXPORT TRUE)
@@ -82,7 +85,9 @@ if(BUILD_WITH_PROXSUITE)
   add_definitions(-DMIM_SOLVERS_WITH_PROXQP)
 endif()
 
-find_package(OpenMP REQUIRED COMPONENTS CXX)
+if(BUILD_WITH_MULTITHREADS)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
 
 if(BUILD_PYTHON_INTERFACE)
   set(PY_NAME ${PROJECT_NAME}_pywrap)
