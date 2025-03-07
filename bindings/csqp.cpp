@@ -84,19 +84,19 @@ void exposeSolverCSQP() {
       .def_readwrite("remove_reg", &SolverCSQP::remove_reg_, "Removes Crocoddyl's regularization by setting (preg,dreg)=0 when True (default: False)")
 
 
-      .add_property("with_callbacks", bp::make_function(&SolverCSQP::getCallbacks), bp::make_function(&SolverCSQP::setCallbacks),
-                    "Activates the callbacks when true (default: False)")
+     //  .add_property("with_callbacks", bp::make_function(&SolverCSQP::getCallbacks), bp::make_function(&SolverCSQP::setCallbacks),
+     //                "Activates the callbacks when true (default: False)")
+     
       .add_property("with_qp_callbacks", bp::make_function(&SolverCSQP::getQPCallbacks), bp::make_function(&SolverCSQP::setQPCallbacks),
                     "Activates the QP callbacks when true (default: False)")
       .add_property("extra_iteration_for_last_kkt", bp::make_function(&SolverCSQP::get_extra_iteration_for_last_kkt), bp::make_function(&SolverCSQP::set_extra_iteration_for_last_kkt),
                     "Additional iteration if SQP max. iter reached (default: False)")
-      .add_property("mu", bp::make_function(&SolverCSQP::get_mu), bp::make_function(&SolverCSQP::set_mu),
-                    "Penalty term for dynamic violation in the merit function (default: 1.)")
       .add_property("xs", make_function(&SolverCSQP::get_xs, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverCSQP::set_xs), "xs")
       .add_property("us", make_function(&SolverCSQP::get_us, bp::return_value_policy<bp::copy_const_reference>()), bp::make_function(&SolverCSQP::set_us), "us")
-      .add_property("dx_tilde", make_function(&SolverCSQP::get_xs_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
-      .add_property("du_tilde", make_function(&SolverCSQP::get_us_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
-      
+      .add_property("dx_tilde", make_function(&SolverCSQP::get_dx_tilde, bp::return_value_policy<bp::copy_const_reference>()), "dx_tilde")
+      .add_property("du_tilde", make_function(&SolverCSQP::get_du_tilde, bp::return_value_policy<bp::copy_const_reference>()), "du_tilde")
+      .add_property("dx", make_function(&SolverCSQP::get_dx, bp::return_value_policy<bp::copy_const_reference>()), "dx")
+      .add_property("du", make_function(&SolverCSQP::get_du, bp::return_value_policy<bp::copy_const_reference>()), "du")
 
 
       .add_property("constraint_norm", bp::make_function(&SolverCSQP::get_constraint_norm),
@@ -107,9 +107,14 @@ void exposeSolverCSQP() {
                     "Number of QP iterations")
       .add_property("KKT", bp::make_function(&SolverCSQP::get_KKT),
                     "KKT residual norm")
-                    
-      .add_property("mu", bp::make_function(&SolverCSQP::get_mu), bp::make_function(&SolverCSQP::set_mu),
-                    "Penalty term for dynamic violation in the merit function (default: 10.)")
+      .add_property("merit", bp::make_function(&SolverCSQP::get_merit),
+                    "Merit function value")
+                          
+      .add_property("mu_dynamic", bp::make_function(&SolverCSQP::get_mu_dynamic), bp::make_function(&SolverCSQP::set_mu_dynamic),
+                    "Penalty weight for dynamic violation in the merit function (default: 10.)")
+      .add_property("mu_constraint", bp::make_function(&SolverCSQP::get_mu_constraint), bp::make_function(&SolverCSQP::set_mu_constraint),
+                    "Penalty weight for constraint violation in the merit function (default: 10.)")
+
       .add_property("eps_abs", bp::make_function(&SolverCSQP::get_eps_abs), bp::make_function(&SolverCSQP::set_eps_abs),
                     "sets epsillon absolute termination criteria for qp solver")
       .add_property("eps_rel", bp::make_function(&SolverCSQP::get_eps_rel), bp::make_function(&SolverCSQP::set_eps_rel),

@@ -147,7 +147,7 @@ ocp = crocoddyl.ShootingProblem(x0, running_models[:-1], running_models[-1])
 solver = mim_solvers.SolverCSQP(ocp)
 solver.max_qp_iters = 1000
 max_iter = 500
-solver.with_callbacks = True
+solver.setCallbacks([mim_solvers.CallbackVerbose()])
 solver.use_filter_line_search = False
 solver.termination_tolerance = 1e-4
 solver.eps_abs = 1e-6
@@ -156,10 +156,16 @@ solver.eps_rel = 1e-6
 
 xs = [x0]*(solver.problem.T + 1)
 us = solver.problem.quasiStatic([x0]*solver.problem.T) 
+
+solver.setCallbacks([mim_solvers.CallbackVerbose(), mim_solvers.CallbackLogger()])
+
 solver.solve(xs, us, max_iter)   
 solution = utils_solo12.get_solution_trajectories(solver, rmodel, rdata, supportFeetIds)
 
-        
+log = solver.getCallbacks()[-1]
+crocoddyl.plotOCSolution(solver.xs, solver.us)
+mim_solvers.plotConvergence(log.convergence_data)
+      
         
 # Plot solution of the constrained OCP
 if(PLOT_OCP_SOL):

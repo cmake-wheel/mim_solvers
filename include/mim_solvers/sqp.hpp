@@ -12,7 +12,7 @@
 #include <Eigen/Cholesky>
 #include <vector>
 #include <boost/circular_buffer.hpp>
-
+#include "mim_solvers/utils/callbacks.hpp"
 #include "mim_solvers/ddp.hpp"
 
 namespace mim_solvers {
@@ -101,6 +101,9 @@ class SolverSQP : public SolverDDP {
   const std::vector<Eigen::VectorXd>& get_xs_try() const { return xs_try_; };
   const std::vector<Eigen::VectorXd>& get_us_try() const { return us_try_; };
 
+  const std::vector<Eigen::VectorXd>& get_dx() const { return dx_; };
+  const std::vector<Eigen::VectorXd>& get_du() const { return du_; };
+  
   double get_KKT() const { return KKT_; };
   double get_gap_norm() const { return gap_norm_; };
   double get_xgrad_norm() const { return x_grad_norm_; };
@@ -108,16 +111,12 @@ class SolverSQP : public SolverDDP {
   double get_merit() const { return merit_; };
   bool get_extra_iteration_for_last_kkt() const { return extra_iteration_for_last_kkt_; };
   bool get_use_filter_line_search() const { return use_filter_line_search_; };
-  double get_mu() const { return mu_; };
+  double get_mu_dynamic() const { return mu_dynamic_; };
   double get_termination_tolerance() const { return termination_tol_; };
   std::size_t get_filter_size() const { return filter_size_; };
 
-  void printCallbacks();
-  void setCallbacks(bool inCallbacks);
-  bool getCallbacks();
 
-
-  void set_mu(double mu) { mu_ = mu; };
+  void set_mu_dynamic(double mu_dynamic) { mu_dynamic_ = mu_dynamic; };
   void set_termination_tolerance(double tol) { termination_tol_ = tol; };
   void set_extra_iteration_for_last_kkt(bool inBool) { extra_iteration_for_last_kkt_ = inBool; };
   void set_use_filter_line_search(bool inBool) { use_filter_line_search_ = inBool; };
@@ -145,9 +144,9 @@ class SolverSQP : public SolverDDP {
   double u_grad_norm_ = 0;                                     //!< 1 norm of the delta u
   double gap_norm_ = 0;                                        //!< 1 norm of the gaps
   double gap_norm_try_ = 0;                                    //!< 1 norm of the gaps
-  double mu_ = 1e0;                                            //!< penalty no constraint violation
+  double mu_dynamic_ = 1e0;                                    //!< penalty weight for dymanic violation in the merit function
   double termination_tol_ = 1e-6;                              //!< Termination tolerance
-  bool with_callbacks_ = false;                                //!< With callbacks
+  // bool with_callbacks_ = false;                                //!< With callbacks
   bool extra_iteration_for_last_kkt_ = false;                  //!< Additional iteration if SQP max. iter reached
   std::size_t filter_size_ = 1;                                //!< Filter size for line-search (do not change the default value !)
   double KKT_ = std::numeric_limits<double>::infinity();       //!< KKT conditions residual
