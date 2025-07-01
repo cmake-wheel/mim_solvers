@@ -25,5 +25,4 @@ homepage = "https://github.com/cmake-wheel/mim_solvers"
 upstream = "https://github.com/machines-in-motion/mim_solvers"
 
 [tool.cmeel]
-build-number = 1
 configure-args = ["-DBUILD_WITH_PROXSUITE=ON"]
