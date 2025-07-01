@@ -82,10 +82,15 @@ apply_default_apple_configuration()
 
 # Project dependencies
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-add_project_dependency(crocoddyl 2.0.0 REQUIRED)
-add_project_dependency(eigenpy 2.7.10 REQUIRED)
-add_project_dependency(example-robot-data 4.0.7 REQUIRED PKG_CONFIG_REQUIRES
-                       "example-robot-data >= 4.0.7")
+add_project_dependency(crocoddyl 3.0.0 REQUIRED)
+if(BUILD_PYTHON_INTERFACE)
+  add_project_dependency(eigenpy 2.7.10 REQUIRED)
+endif()
+
+if(BUILD_BENCHMARKS OR BUILD_TESTING)
+  add_project_dependency(example-robot-data 4.0.7 REQUIRED PKG_CONFIG_REQUIRES
+                         "example-robot-data >= 4.0.7")
+endif()
 
 if(BUILD_WITH_PROXSUITE)
   add_project_dependency(proxsuite REQUIRED)
@@ -151,7 +156,9 @@ if(BUILD_PYTHON_INTERFACE)
 endif()
 
 # Unit tests
-add_subdirectory(tests)
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
 
 # Benchmarks
 if(BUILD_BENCHMARKS)
