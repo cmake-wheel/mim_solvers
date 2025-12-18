@@ -10,13 +10,15 @@ set(${PROJECT_NAME}_FACTORY_TEST
     factory/solver.hpp
     factory/solver.cpp)
 
-add_library(${PROJECT_NAME}_unittest SHARED ${${PROJECT_NAME}_FACTORY_TEST})
-target_link_libraries(
-  ${PROJECT_NAME}_unittest PUBLIC ${PROJECT_NAME}
-                                  example-robot-data::example-robot-data)
+if(NOT BUILD_STANDALONE_PYTHON_INTERFACE)
+  add_library(${PROJECT_NAME}_unittest SHARED ${${PROJECT_NAME}_FACTORY_TEST})
+  target_link_libraries(
+    ${PROJECT_NAME}_unittest PUBLIC ${PROJECT_NAME}::${PROJECT_NAME}
+                                    example-robot-data::example-robot-data)
 
-add_unit_test(test_solvers test_solvers.cpp)
-target_link_libraries(test_solvers PUBLIC ${PROJECT_NAME}_unittest)
+  add_unit_test(test_solvers test_solvers.cpp)
+  target_link_libraries(test_solvers PUBLIC ${PROJECT_NAME}_unittest)
+endif()
 
 if(BUILD_PYTHON_INTERFACE)
   add_python_unit_test("py-test-clqr-convergence-all"
@@ -27,7 +29,9 @@ if(BUILD_PYTHON_INTERFACE)
                        "tests/python/test_clqr_stagewise_admm.py" bindings)
   add_python_unit_test("py-test-lqr-sqp" "tests/python/test_lqr_problem.py"
                        bindings)
-  add_python_unit_test("py-test-sqp-no-reg" "tests/python/test_sqp.py" bindings)
+  # TODO: ActuationModelMultiCopterBase was removed in crocoddyl 3.1.0
+  # add_python_unit_test("py-test-sqp-no-reg" "tests/python/test_sqp.py"
+  # bindings)
   add_python_unit_test("py-test-sqp-taichi-convergence"
                        "tests/python/test_sqp_taichi_convergence.py" bindings)
   add_python_unit_test("py-test-sqp-ur5-convergence"
