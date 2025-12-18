@@ -5,7 +5,8 @@ requires = [
   "cmeel-boost ~= 1.89.0",
   "crocoddyl[build]",
   "proxsuite[build]",
-  "libmim-solvers == 0.2.0"
+  "libmim-solvers == 0.2.0",
+  "osqp"
 ]
 
 [project]

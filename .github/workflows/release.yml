@@ -12,7 +12,7 @@ on:
 
 env:
   CMEEL_LOG_LEVEL: DEBUG
-  DEPS: example-robot-data[build] pin[build] crocoddyl[build] proxsuite[build] libmim-solvers[build] scipy
+  DEPS: example-robot-data[build] pin[build] crocoddyl[build] proxsuite[build] libmim-solvers[build] osqp scipy
   PROJECT: mim-solvers
 
 jobs:
