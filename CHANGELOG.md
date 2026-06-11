@@ -9,6 +9,13 @@ Releases are available on the [github repository](https://github.com/machines-in
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-18
+
+- python: fix compatibility with numpy 2.4
+- cmake: removed submodule
+- format: cmake-format -> gersemi
+- nix: switch to flakoboros
+
 ## [0.2.0] - 2025-12-18
 
 - update for crocoddy v3
@@ -153,7 +160,8 @@ Implementation of numerical solvers used in the Machines in Motion Laboratory.
 
 ## Git changelogs
 
-[Unreleased]: https://github.com/machines-in-motion/mim_solvers/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/machines-in-motion/mim_solvers/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/machines-in-motion/mim_solvers/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/machines-in-motion/mim_solvers/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/machines-in-motion/mim_solvers/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/machines-in-motion/mim_solvers/compare/v0.0.5...v0.1.0
